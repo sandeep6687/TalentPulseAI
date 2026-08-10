@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Production build outputs
+dist/
+build/
+.vite/
+
+# .NET Build and artifact outputs
+**/bin/
+**/obj/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# IDE & OS files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.vs/
+*.swp
+*.DS_Store
+Thumbs.db
