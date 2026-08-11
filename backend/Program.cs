@@ -81,7 +81,9 @@ builder.Services.AddCors(options =>
                 || uri.Host == "0.0.0.0"
                 || uri.Host.StartsWith("192.168.")
                 || uri.Host.StartsWith("10.")
-                || uri.Host.StartsWith("172.");
+                || uri.Host.StartsWith("172.")
+                || uri.Host.EndsWith(".vercel.app")
+                || uri.Host.EndsWith(".onrender.com");
         })
         .AllowAnyHeader()
         .AllowAnyMethod()

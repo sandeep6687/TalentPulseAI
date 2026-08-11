@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: talent-pulse-api
+    runtime: docker
+    dockercontext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    envVars:
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: talentpulse-db
+          property: connectionString
+      - key: Gemini__ApiKey
+        sync: false
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+databases:
+  - name: talentpulse-db
+    databaseName: talentpulsedb
+    user: postgres
+    plan: free
