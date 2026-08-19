@@ -17,5 +17,5 @@ services:
 databases:
   - name: talentpulse-db
     databaseName: talentpulsedb
-    user: postgres
+    user: talentpulse_user
     plan: free
