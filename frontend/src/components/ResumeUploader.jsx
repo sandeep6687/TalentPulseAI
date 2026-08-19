@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, Sparkles, ArrowRight, Save, CheckCircle2 } from 'lucide-react';
+import { Upload, Sparkles, ArrowRight, Save, CheckCircle2, FileText, AlignLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 // localStorage keys scoped per user so multiple accounts don't mix
@@ -21,6 +21,11 @@ export default function ResumeUploader({ onAnalyzeComplete }) {
   const [isImporting, setIsImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [savedFlash, setSavedFlash] = useState(false);
+
+  // JD input mode: 'paste' | 'upload'
+  const [jdMode, setJdMode] = useState('paste');
+  const [isImportingJD, setIsImportingJD] = useState(false);
+  const [jdImportMessage, setJdImportMessage] = useState('');
 
   // ── Rehydrate saved profile data for the current user on mount or login ──
   useEffect(() => {
@@ -133,6 +138,60 @@ export default function ResumeUploader({ onAnalyzeComplete }) {
       setImportMessage(error.message || 'Could not import resume file');
     } finally {
       setIsImporting(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleImportJD = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImportingJD(true);
+    setJdImportMessage('');
+
+    try {
+      let text = '';
+      const isTextFile = /\.(txt|md)$/i.test(file.name);
+
+      if (isTextFile) {
+        text = await readClientText(file);
+      }
+
+      if (!text.trim()) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE}/api/resumes/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || 'JD import failed');
+        }
+
+        text = data.extractedText || '';
+      }
+
+      const isRawPdfBinary = (str) =>
+        str && (str.startsWith('%PDF-') || str.includes('/FlateDecode') || str.includes('endobj'));
+
+      if (isRawPdfBinary(text)) {
+        throw new Error('Could not extract text from this PDF. Please paste the JD text directly.');
+      }
+
+      if (!text.trim()) {
+        throw new Error(`Could not extract text from ${file.name}. Please paste the JD text directly.`);
+      }
+
+      setJdText(text.trim());
+      setJdImportMessage(`✓ Extracted from ${file.name}`);
+      setJdMode('paste'); // Switch to paste view so user sees the extracted text
+    } catch (error) {
+      setJdImportMessage(`⚠ ${error.message || 'Could not import JD file'}`);
+    } finally {
+      setIsImportingJD(false);
       event.target.value = '';
     }
   };
@@ -296,13 +355,90 @@ export default function ResumeUploader({ onAnalyzeComplete }) {
           </div>
 
           <div>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Job Description Text</label>
-            <textarea 
-              rows={12} 
-              value={jdText} 
-              onChange={e => setJdText(e.target.value)}
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#fff', fontFamily: 'var(--font-code)', fontSize: '0.85rem' }}
-            />
+            {/* JD input mode tabs */}
+            <div style={{ display: 'flex', gap: '0', marginBottom: '10px', background: 'rgba(0,0,0,0.25)', borderRadius: '10px', padding: '3px', width: 'fit-content' }}>
+              <button
+                onClick={() => setJdMode('paste')}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  padding: '6px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600',
+                  border: 'none', cursor: 'pointer',
+                  background: jdMode === 'paste' ? 'rgba(99,102,241,0.35)' : 'transparent',
+                  color: jdMode === 'paste' ? '#c7d2fe' : 'var(--text-muted)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <AlignLeft size={13} /> Paste Text
+              </button>
+              <button
+                onClick={() => setJdMode('upload')}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  padding: '6px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600',
+                  border: 'none', cursor: 'pointer',
+                  background: jdMode === 'upload' ? 'rgba(16,185,129,0.25)' : 'transparent',
+                  color: jdMode === 'upload' ? '#6ee7b7' : 'var(--text-muted)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <FileText size={13} /> Upload PDF
+              </button>
+            </div>
+
+            {jdMode === 'paste' ? (
+              <>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Paste Job Description Text</label>
+                <textarea
+                  rows={11}
+                  value={jdText}
+                  onChange={e => setJdText(e.target.value)}
+                  placeholder="Paste the full job description here..."
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#fff', fontFamily: 'var(--font-code)', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                />
+              </>
+            ) : (
+              <div style={{
+                border: '2px dashed rgba(16,185,129,0.35)', borderRadius: '12px',
+                padding: '32px 24px', textAlign: 'center',
+                background: 'rgba(16,185,129,0.04)', minHeight: '220px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px'
+              }}>
+                <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileText size={26} color="#10B981" />
+                </div>
+                <p style={{ margin: 0, fontWeight: '700', fontSize: '0.95rem', color: '#fff' }}>Upload JD as PDF</p>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>Text will be extracted automatically</p>
+                <label style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '7px',
+                  padding: '10px 20px', borderRadius: '10px',
+                  background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.4)',
+                  color: '#6ee7b7', cursor: 'pointer', fontSize: '0.88rem', fontWeight: '600',
+                  transition: 'background 0.2s'
+                }}>
+                  <Upload size={15} />
+                  {isImportingJD ? 'Extracting...' : 'Choose PDF / TXT'}
+                  <input
+                    type="file"
+                    accept=".pdf,.txt,.md"
+                    onChange={handleImportJD}
+                    style={{ display: 'none' }}
+                    disabled={isImportingJD}
+                  />
+                </label>
+                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>Supports .pdf, .txt, .md</p>
+              </div>
+            )}
+
+            {jdImportMessage && (
+              <div style={{
+                marginTop: '8px', fontSize: '0.82rem', padding: '6px 10px', borderRadius: '6px',
+                color: jdImportMessage.startsWith('✓') ? '#6ee7b7' : '#fca5a5',
+                background: jdImportMessage.startsWith('✓') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
+                border: `1px solid ${jdImportMessage.startsWith('✓') ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.2)'}`
+              }}>
+                {jdImportMessage}
+              </div>
+            )}
           </div>
         </div>
 

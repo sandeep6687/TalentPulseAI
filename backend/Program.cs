@@ -107,7 +107,22 @@ app.UseCors("CorsPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Automatically initialize PostgreSQL schema on deployment startup
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not automatically initialize database on startup. Ensure PostgreSQL is connected.");
+    }
+}
+
 app.MapControllers();
 app.MapHub<InterviewHub>("/hubs/interview");
 
 app.Run();
+
