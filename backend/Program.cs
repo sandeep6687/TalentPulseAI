@@ -18,11 +18,15 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
 
 // Configure PostgreSQL Database Context via Entity Framework Core
-var connString = builder.Configuration.GetConnectionString("DefaultConnection")
+var rawConnString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? builder.Configuration["DATABASE_URL"]
     ?? "Host=localhost;Database=talentpulsedb;Username=postgres;Password=postgres";
+
+var connString = FormatPostgresConnectionString(rawConnString);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connString));
+
 
 // Register AI Providers (Multi-Provider Support: Gemini, OpenAI, Claude)
 builder.Services.AddSingleton<GeminiProvider>();
@@ -125,4 +129,33 @@ app.MapControllers();
 app.MapHub<InterviewHub>("/hubs/interview");
 
 app.Run();
+
+static string FormatPostgresConnectionString(string rawConn)
+{
+    if (string.IsNullOrWhiteSpace(rawConn))
+        return "Host=localhost;Database=talentpulsedb;Username=postgres;Password=postgres";
+
+    if (rawConn.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+        rawConn.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        try
+        {
+            var uri = new Uri(rawConn);
+            var userInfo = uri.UserInfo.Split(':');
+            var username = Uri.UnescapeDataString(userInfo[0]);
+            var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+            var database = uri.AbsolutePath.TrimStart('/');
+            var port = uri.Port > 0 ? uri.Port : 5432;
+
+            return $"Host={uri.Host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+        }
+        catch
+        {
+            return rawConn;
+        }
+    }
+
+    return rawConn;
+}
+
 
