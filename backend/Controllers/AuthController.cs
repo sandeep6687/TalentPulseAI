@@ -29,62 +29,78 @@ namespace TalentPulseApi.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest req)
         {
-            if (string.IsNullOrWhiteSpace(req.FullName) ||
-                string.IsNullOrWhiteSpace(req.Email) ||
-                string.IsNullOrWhiteSpace(req.Password))
-                return BadRequest(new { message = "All fields are required." });
-
-            if (req.Password.Length < 6)
-                return BadRequest(new { message = "Password must be at least 6 characters." });
-
-            var existing = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLower());
-            if (existing != null)
-                return Conflict(new { message = "An account with this email already exists." });
-
-            var hash = _auth.HashPassword(req.Password);
-
-            var user = new User
+            try
             {
-                FullName = req.FullName.Trim(),
-                Email = req.Email.ToLower().Trim(),
-                PasswordHash = hash
-            };
+                if (string.IsNullOrWhiteSpace(req.FullName) ||
+                    string.IsNullOrWhiteSpace(req.Email) ||
+                    string.IsNullOrWhiteSpace(req.Password))
+                    return BadRequest(new { message = "All fields are required." });
 
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync();
+                if (req.Password.Length < 6)
+                    return BadRequest(new { message = "Password must be at least 6 characters." });
 
-            var token = _auth.GenerateJwt(user);
-            SetAuthCookie(token);
+                var existing = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLower().Trim());
+                if (existing != null)
+                    return Conflict(new { message = "An account with this email already exists." });
 
-            return Ok(new
+                var hash = _auth.HashPassword(req.Password);
+
+                var user = new User
+                {
+                    FullName = req.FullName.Trim(),
+                    Email = req.Email.ToLower().Trim(),
+                    PasswordHash = hash
+                };
+
+                _db.Users.Add(user);
+                await _db.SaveChangesAsync();
+
+                var token = _auth.GenerateJwt(user);
+                SetAuthCookie(token);
+
+                return Ok(new
+                {
+                    userId = user.UserId,
+                    fullName = user.FullName,
+                    email = user.Email,
+                    token = token,
+                    message = "Account created successfully."
+                });
+            }
+            catch (Exception ex)
             {
-                userId = user.UserId,
-                fullName = user.FullName,
-                email = user.Email,
-                message = "Account created successfully."
-            });
+                return StatusCode(500, new { message = "Registration error: " + ex.Message });
+            }
         }
 
         // POST /api/auth/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest req)
         {
-            if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
-                return BadRequest(new { message = "Email and password are required." });
-
-            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLower());
-            if (user == null || !_auth.VerifyPassword(req.Password, user.PasswordHash))
-                return Unauthorized(new { message = "Invalid email or password." });
-
-            var token = _auth.GenerateJwt(user);
-            SetAuthCookie(token);
-
-            return Ok(new
+            try
             {
-                userId = user.UserId,
-                fullName = user.FullName,
-                email = user.Email
-            });
+                if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
+                    return BadRequest(new { message = "Email and password are required." });
+
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLower().Trim());
+                if (user == null || !_auth.VerifyPassword(req.Password, user.PasswordHash))
+                    return Unauthorized(new { message = "Invalid email or password." });
+
+                var token = _auth.GenerateJwt(user);
+                SetAuthCookie(token);
+
+                return Ok(new
+                {
+                    userId = user.UserId,
+                    fullName = user.FullName,
+                    email = user.Email,
+                    token = token
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Login error: " + ex.Message });
+            }
         }
 
         // POST /api/auth/logout
@@ -117,12 +133,11 @@ namespace TalentPulseApi.Controllers
 
         private void SetAuthCookie(string token)
         {
-            var isProd = HttpContext.Request.Host.Host != "localhost";
             Response.Cookies.Append("tp_auth", token, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = isProd,                  // true in prod, false on localhost
-                SameSite = isProd ? SameSiteMode.Strict : SameSiteMode.None,
+                Secure = true,
+                SameSite = SameSiteMode.None,
                 Expires = DateTimeOffset.UtcNow.AddHours(24),
                 Path = "/"
             });

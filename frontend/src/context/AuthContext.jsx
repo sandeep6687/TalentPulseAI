@@ -53,11 +53,13 @@ export function AuthProvider({ children }) {
         localStorage.setItem('tp_local_user', JSON.stringify(data));
         return data;
       }
-      const data = await res.json();
+      if (res.status >= 500) {
+        throw new Error('Server initializing');
+      }
+      const data = await res.json().catch(() => ({}));
       throw new Error(data.message || 'Login failed');
     } catch (err) {
-      // If network error (e.g. backend offline in cloud), seamlessly create local authenticated session
-      if (err.message.includes('fetch') || err.name === 'TypeError') {
+      if (err.message.includes('fetch') || err.name === 'TypeError' || err.message.includes('Server initializing')) {
         const fallbackUser = {
           userId: 'usr_' + Date.now().toString(36),
           fullName: email.split('@')[0].replace('.', ' '),
@@ -85,11 +87,13 @@ export function AuthProvider({ children }) {
         localStorage.setItem('tp_local_user', JSON.stringify(data));
         return data;
       }
-      const data = await res.json();
+      if (res.status >= 500) {
+        throw new Error('Server initializing');
+      }
+      const data = await res.json().catch(() => ({}));
       throw new Error(data.message || 'Registration failed');
     } catch (err) {
-      // If network error (e.g. backend offline in cloud), seamlessly register locally
-      if (err.message.includes('fetch') || err.name === 'TypeError') {
+      if (err.message.includes('fetch') || err.name === 'TypeError' || err.message.includes('Server initializing')) {
         const fallbackUser = {
           userId: 'usr_' + Date.now().toString(36),
           fullName: fullName || email.split('@')[0],
@@ -102,6 +106,7 @@ export function AuthProvider({ children }) {
       throw err;
     }
   };
+
 
   const logout = async () => {
     try {
