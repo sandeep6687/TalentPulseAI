@@ -8,6 +8,7 @@ RUN dotnet publish "TalentPulseApi.csproj" -c Release -o /app/publish /p:UseAppH
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-ENV ASPNETCORE_URLS=http://+:${PORT}
+ENV DOTNET_hostBuilder__reloadConfigOnChange=false
+ENV DOTNET_USE_POLLING_FILE_WATCHER=false
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "TalentPulseApi.dll"]
+ENTRYPOINT dotnet TalentPulseApi.dll --urls "http://+:${PORT:-8080}"
