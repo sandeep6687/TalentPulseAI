@@ -11,8 +11,16 @@ services:
           property: connectionString
       - key: Gemini__ApiKey
         sync: false
+      - key: Jwt__Key
+        sync: false
+      - key: Jwt__Issuer
+        value: talentpulse-api
+      - key: Jwt__Audience
+        value: talentpulse-client
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      - key: FrontendUrl
+        value: https://talent-pulse-ai-six.vercel.app
 
 databases:
   - name: talentpulse-db
