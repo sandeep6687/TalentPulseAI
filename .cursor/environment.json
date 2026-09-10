@@ -1,0 +1,21 @@
+{
+  "name": "TalentPulse AI",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "user": "ubuntu",
+  "install": "bash .cursor/scripts/install.sh",
+  "start": "bash .cursor/scripts/start.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "export PATH=\"${HOME}/.dotnet:${PATH}\" && cd backend && dotnet run --no-launch-profile --urls http://0.0.0.0:5000"
+    },
+    {
+      "name": "frontend",
+      "command": "cd frontend && npm run dev -- --host 0.0.0.0 --port 3000"
+    }
+  ],
+  "ports": [3000, 5000]
+}
